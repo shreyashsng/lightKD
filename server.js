@@ -10,13 +10,15 @@ const PORT = process.env.PORT || 8000;
 
 app.use(express.json());
 
-// Enable CORS
+// Global CORS Middleware - Ensures CORS headers on ALL requests, including preflight & errors
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Range');
-  res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
-  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, PUT, PATCH, POST, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', '*');
+  res.setHeader('Access-Control-Expose-Headers', '*');
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
   next();
 });
 
@@ -148,19 +150,16 @@ app.get('/api/episode/:id', async (req, res) => {
       return res.status(500).json({ success: false, error: "Stream URL extraction failed from KissKH." });
     }
 
-    const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https' || (req.get('host') && req.get('host').includes('vercel.app'));
-    const proto = isHttps ? 'https' : 'http';
-    const hostOrigin = `${proto}://${req.get('host')}`;
-
     const rawStreamUrl = streamData.Video || "";
+    // Use relative path for proxy URLs to ensure same-origin requests across Vercel custom domains & preview URLs
     const playerReadyUrl = rawStreamUrl
-      ? `${hostOrigin}/api/proxy?url=${encodeURIComponent(rawStreamUrl)}`
+      ? `/api/proxy?url=${encodeURIComponent(rawStreamUrl)}`
       : "";
 
     const formattedSubs = subData.map(s => ({
       label: s.label || "Unknown",
       language: s.land || "en",
-      url: s.src ? `${hostOrigin}/api/proxy?url=${encodeURIComponent(s.src)}` : "",
+      url: s.src ? `/api/proxy?url=${encodeURIComponent(s.src)}` : "",
       raw_url: s.src || "",
       default: !!s.default
     })).filter(s => s.url);
@@ -201,8 +200,8 @@ app.get('/api/episode/:id', async (req, res) => {
   }
 });
 
-// Helper function: Rewrite URLs inside M3U8 playlists to route segments through proxy
-function rewritePlaylistUrls(playlistText, baseUrl, proxyBaseUrl) {
+// Helper function: Rewrite URLs inside M3U8 playlists to route segments through proxy relative path
+function rewritePlaylistUrls(playlistText, baseUrl) {
   const lines = playlistText.split('\n');
   const rewrittenLines = lines.map(line => {
     const trimmed = line.trim();
@@ -212,7 +211,7 @@ function rewritePlaylistUrls(playlistText, baseUrl, proxyBaseUrl) {
       return line.replace(/URI="(.*?)"/g, (match, uri) => {
         try {
           const absolute = new URL(uri, baseUrl).href;
-          const proxied = `${proxyBaseUrl}?url=${encodeURIComponent(absolute)}`;
+          const proxied = `/api/proxy?url=${encodeURIComponent(absolute)}`;
           return `URI="${proxied}"`;
         } catch (e) {
           return match;
@@ -222,7 +221,7 @@ function rewritePlaylistUrls(playlistText, baseUrl, proxyBaseUrl) {
 
     try {
       const absolute = new URL(trimmed, baseUrl).href;
-      return `${proxyBaseUrl}?url=${encodeURIComponent(absolute)}`;
+      return `/api/proxy?url=${encodeURIComponent(absolute)}`;
     } catch (e) {
       return line;
     }
@@ -233,6 +232,12 @@ function rewritePlaylistUrls(playlistText, baseUrl, proxyBaseUrl) {
 
 // ── Resilient CORS Media Stream & Subtitle Proxy ────────────────────────────
 app.get('/api/proxy', async (req, res) => {
+  // Set CORS headers immediately before doing any async network operations
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', '*');
+  res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
+
   const targetUrl = req.query.url;
   const customReferer = req.query.referer || 'https://kisskh.is/';
   const customOrigin = req.query.origin || 'https://kisskh.is';
@@ -278,18 +283,11 @@ app.get('/api/proxy', async (req, res) => {
                          textSnippet.trimStart().startsWith('#EXTM3U') ||
                          lowerUrl.split('?')[0].endsWith('.m3u8');
 
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', '*');
       res.setHeader('Cache-Control', 'no-cache');
 
       if (isPlaylist) {
-        const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https' || (req.get('host') && req.get('host').includes('vercel.app'));
-        const proto = isHttps ? 'https' : 'http';
-        const hostOrigin = `${proto}://${req.get('host')}`;
-        const proxyBaseUrl = `${hostOrigin}/api/proxy`;
         const playlistText = rawBuffer.toString('utf8');
-        const rewrittenPlaylist = rewritePlaylistUrls(playlistText, targetUrl, proxyBaseUrl);
+        const rewrittenPlaylist = rewritePlaylistUrls(playlistText, targetUrl);
 
         res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
         return res.status(response.status).send(rewrittenPlaylist);
@@ -318,10 +316,6 @@ app.get('/api/proxy', async (req, res) => {
       validateStatus: status => status < 500
     });
 
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', '*');
-    res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
     res.setHeader('Accept-Ranges', 'bytes');
     res.setHeader('Cache-Control', 'public, max-age=3600');
 
