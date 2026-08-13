@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KissKH LightKD — Minimalist HLS Video Streamer</title>
+  <meta name="description" content="Extremely lightweight Asian Drama & Anime stream player powered by Artplayer, HLS.js, and Sentri UI.">
+
+  <!-- Google Fonts: Rubik & Fira Code -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Artplayer & HLS.js Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/artplayer/dist/artplayer.js"></script>
+
+  <!-- Sentri Design System CSS -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Starfield Atmosphere Overlay -->
+  <div class="starfield-overlay" aria-hidden="true"></div>
+
+  <!-- Sentri Top Navigation Bar -->
+  <header class="top-nav">
+    <div class="nav-container">
+      <div class="brand">
+        <a href="index.html" class="brand-link">
+          <span class="brand-dot"></span>
+          <span class="brand-name">KISSKH</span>
+          <span class="chip-lime-sm">HLS STREAM</span>
+        </a>
+      </div>
+
+      <!-- Live Title Search Bar -->
+      <div class="search-container">
+        <div class="search-input-box">
+          <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="searchInput" placeholder="Search title (e.g. Goblin, Revenged Love)..." autocomplete="off">
+          <span class="limit-tag">MAX 5</span>
+        </div>
+
+        <!-- Search Results Dropdown (Strictly Capped at Max 5 Results) -->
+        <div id="searchResults" class="search-dropdown hidden"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Viewport Layout: Left (Player), Right (Details & Episodes) -->
+  <main class="app-viewport">
+    <div class="main-layout">
+
+      <!-- LEFT COLUMN: Video Player & Stream Control Bar -->
+      <section class="player-column">
+        <div class="artplayer-frame">
+          <div id="artplayer" class="artplayer-view"></div>
+          <div id="playerPlaceholder" class="player-placeholder">
+            <div class="placeholder-card">
+              <div class="play-circle-btn">
+                <svg width="28" height="28" viewBox="0 0 36 36" fill="none">
+                  <path d="M11.286 4.723A1.5 1.5 0 0 0 9 6v24a1.5 1.5 0 0 0 2.286 1.277l19.5-12a1.5 1.5 0 0 0 0-2.555l-19.5-12z" fill="#150f23"/>
+                </svg>
+              </div>
+              <h2>Select an Episode to Start Streaming</h2>
+              <p>Search titles or pick an episode from the list on the right.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stream Control & Metadata Bar -->
+        <div class="stream-control-bar card-night">
+          <div class="current-meta">
+            <div class="meta-title-row">
+              <h2 id="nowPlayingTitle">No Drama Selected</h2>
+              <span id="nowPlayingEpTag" class="chip-lime-sm">Episode --</span>
+            </div>
+            <p id="nowPlayingSubTag" class="meta-subtext">Subtitles: Ready for playback</p>
+          </div>
+
+          <div class="episode-nav-buttons">
+            <button id="btnPrevEp" class="btn-ghost" disabled>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="19 20 9 12 19 4 19 20"></polygon>
+                <line x1="5" y1="19" x2="5" y2="5"></line>
+              </svg>
+              <span>PREV</span>
+            </button>
+            <button id="btnNextEp" class="btn-primary" disabled>
+              <span>NEXT</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="5 4 15 12 5 20 5 4"></polygon>
+                <line x1="19" y1="5" x2="19" y2="19"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT COLUMN: Drama Info Header & Minimalist Episode List -->
+      <aside class="details-column">
+
+        <!-- Small Poster + Details Header Card (No description) -->
+        <div class="drama-card card-night">
+          <div class="drama-card-header">
+            <img id="dramaPoster" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='130' fill='%231f1633'%3E%3Crect width='90' height='130'/%3E%3C/svg%3E" alt="Drama Poster" class="small-poster-img">
+            <div class="drama-header-info">
+              <h1 id="dramaTitle" class="drama-heading">Select a Drama</h1>
+              <div class="drama-tags">
+                <span id="dramaCountry" class="pill-tag">Asian Drama</span>
+                <span id="dramaStatus" class="chip-lime-sm">Status: --</span>
+                <span id="dramaEpCount" class="pill-tag">0 Episodes</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Available Episodes Selector Card -->
+        <div class="episodes-card card-night">
+          <div class="episodes-header">
+            <div class="header-left">
+              <h3>Available Episodes</h3>
+              <span id="episodesTotalBadge" class="pill-tag">0 Total</span>
+            </div>
+            <!-- Season / Batch Selector Tabs -->
+            <div id="seasonSelector" class="season-tabs"></div>
+          </div>
+
+          <!-- Minimalist Episode Pills Grid -->
+          <div id="episodesGrid" class="episode-pills-grid">
+            <div class="empty-state">
+              <p>Search titles or select a drama to display available episodes.</p>
+            </div>
+          </div>
+        </div>
+
+      </aside>
+
+    </div>
+  </main>
+
+  <!-- Sentri Footer -->
+  <footer class="footer-light-bar">
+    <div class="footer-container">
+      <div class="footer-brand">
+        <span class="brand-name">KISSKH LIGHTKD</span>
+        <span class="chip-lime-sm">SENTRI DESIGN SYSTEM</span>
+      </div>
+      <p class="footer-text">Artplayer 5.x • HLS.js • ProxyPool Anti-Ban • Render & Vercel Ready</p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

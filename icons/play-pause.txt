@@ -1,0 +1,10 @@
+play:
+<svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M11.286 4.723A1.5 1.5 0 0 0 9 6v24a1.5 1.5 0 0 0 2.286 1.277l19.5-12a1.5 1.5 0 0 0 0-2.555l-19.5-12z" fill="#fff"/>
+</svg>
+
+
+pause:
+<svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path fill-rule="evenodd" clip-rule="evenodd" d="M24 3.75A2.25 2.25 0 0 1 26.25 6v24a2.25 2.25 0 1 1-4.5 0V6A2.25 2.25 0 0 1 24 3.75zm-12 0A2.25 2.25 0 0 1 14.25 6v24a2.25 2.25 0 1 1-4.5 0V6A2.25 2.25 0 0 1 12 3.75z" fill="#fff"/>
+</svg>
